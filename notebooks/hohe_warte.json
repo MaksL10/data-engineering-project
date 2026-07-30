@@ -1,1 +1,0 @@
-{"media_type":"application/json","type":"FeatureCollection","version":"v1","timestamps":["2026-06-11T09:50+00:00"],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[16.35638888888889,48.24861111111111]},"properties":{"parameters":{"TL":{"name":"Lufttemperatur","unit":"°C","data":[16.4]}},"station":"11035"}}]}
