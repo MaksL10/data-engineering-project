@@ -1,0 +1,46 @@
+api:
+  base_url: https://dataset.api.hub.geosphere.at/v1
+  endpoint: station/historical/klima-v2-10min
+  interval_minutes: 10
+
+stations:
+  - id: 6
+    name: Bad Bleiberg
+    state: Kärnten
+  - id: 62
+    name: Millstatt
+    state: Kärnten
+  - id: 100
+    name: Villach Stadt
+    state: Kärnten
+  - id: 150
+    name: Spittal an der Drau
+    state: Kärnten
+  - id: 19911
+    name: Hermagor
+    state: Kärnten
+
+parameters:
+  - TL          # Lufttemperatur 2m
+  - tl_flag     # Qualitätsflag für Lufttemperatur 2m
+  - RF          # Relative Feuchte
+  - rf_flag     # Qualitätsflag für Relative Feuchte
+  - FFAM        # Windgeschwindigkeit 10m (arithmetischer Mittelwert)
+  - ffam_flag   # Qualitätsflag für Windgeschwindigkeit 10m (arithmetischer Mittelwert)
+  - FFX         # Spitzböen
+  - ffx_flag    # Qualitätsflag für Maximale Windgeschwindigkeit (Spitzböen)
+  - DD          # Windrichtung
+  - dd_flag     # Qualitätsflag für Windrichtung
+  - RR          # Niederschlagssumme (aus 1-Minuten-Niederschalgs-Daten)
+  - rr_flag     # Qualitätsflag für Niederschlagssumme
+  - RRM         # Niederschlagsdauer
+  - rrm_flag    # Qualitätsflag für Niederschlagsdauer
+  - SH          # Schneehöhe
+  - sh_flag     # Qualitätsflag für Gesamtschneehöhe, Schneepegelmessung 
+  - SO          # Sonnenscheindauer
+  - so_flag     # Qualitätsflag für Sonnenscheindauer
+
+quality:
+  valid_flags: [1, 10, 11, 12, 20, 21, 22]
+  warn_flags: [0]
+  invalid_flags: []

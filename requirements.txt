@@ -1,0 +1,13 @@
+# API
+
+requests
+
+# Kafka
+kafka-python
+
+#Mongo-DB
+pymongo
+
+# Config and Enviroment
+python-dotenv
+pyyaml
