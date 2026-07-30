@@ -33,3 +33,9 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+#Abgaben-Ordner
+abgaben/
+notebooks/*.py
+notebooks/*.json
+notebooks/*.txt
