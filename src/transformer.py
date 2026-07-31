@@ -1,94 +1,97 @@
+import os
+import yaml
 import time
 from pymongo import MongoClient
+from dotenv import load_dotenv
 
-# 1. Configuration
-MONGO_URI = "mongodb://localhost:27017/"
-DB_NAME = "city_database"
-RAW_COLLECTION = "weather_data"
-CLEAN_COLLECTION = "cleaned_weather"
-STATIONS = "stations"
+# 1. Load enviroment variables & config
+load_dotenv()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+config_path = os.path.join(BASE_DIR, "config", "config.yaml")
 
-# 2. Establish connection to DB
+with open(config_path, "r") as f:
+    config = yaml.safe_load(f)
+
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+DB_NAME = os.getenv("MONGO_DB", "city_database")
+RAW_COLLECTION = os.getenv("MONGO_COLLECTION_RAW", "weather_data")
+CLEAN_COLLECTION = os.getenv("MONGO_COLLECTION_PROCESSED", "weather_processed")
+VALID_FLAGS = config["quality"]["valid_flags"]
+INTERVAL = config["api"]["interval_minutes"]
+
+# 2. Establish connection to Mongo DB
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 raw_col = db[RAW_COLLECTION]
 clean_col = db[CLEAN_COLLECTION]
 
-
-stations_col = db[STATIONS]
-
-def get_station_lookup():
-    # get all documents from stations-collection in MongoDB
-    db_stations = stations_col.find()
-
-    lookup = {}
-
-    for doc in db_stations:
-        station_id = doc.get("station_id")
-        station_name = doc.get("name")
-
-        lookup[station_id] = station_name
-
-    return lookup
-
-def transform_latest_data():
-    # 1. Step: get the newest raw-data document
-    latest_raw = raw_col.find_one(sort=[('_id', -1)])
-
-    if not latest_raw:
-        print("No raw data found in MongoDB. Please start the producer first!")
-        return
-    
-    # extracting timestamps of the last file
-    timestamps = latest_raw.get("timestamps", [])
+def transform_document(raw_doc):
+    """Transform one raw GeoSpheredocument into flat record - one per station."""
+    timestamps = raw_doc.get("timestamps", [])
+    timestamp = timestamps[0] if timestamps else None
 
     records = []
 
-    for feature in latest_raw.get("features", []):
-        properties = feature.get("properties", [])
-        
-        # extract station ID, where the key is "station"
-        station = properties.get("station", [])
-        
-        # extract the next Dict layer
+    for feature in raw_doc.get("features", []):
+        properties = feature.get("properties", {})
+        station_id = properties.get("station")
         parameters = properties.get("parameters", {})
-        
-        # getting data for Temperature, Temperature Unis and Name
-        for key, value in parameters.items():
-            temp_list = value.get("data", [])
-            temp_unit = value.get("unit")
-            temp_name = value.get("name")
 
-            temp = temp_list[0]
+        # Build flat record for this station
+        record = {
+            "station_id": station_id,
+            "timestamp": timestamp
+        }
 
-            print(temp_name, ":", temp, temp_unit)
+        for param_key, param_value in parameters.items():
+            data = param_value.get("data", [None])
+            value = data[0] if data else None
+            record[param_key] = value
 
-        new_file = create_cleaned_data(timestamps, temp, station, temp_unit, temp_name)
-        print(new_file)
+        records.append(record)
 
+    return records
+
+def transform_unprocessed():
+    """Find and transform all raw documents not yet processed"""
+    # Only fetch documents where 'processed' field is not True
+    # 1. Step: get the newest raw-data document
+    unprocessed = raw_col.find({"processed": {"$ne": True}})
+    count = 0
+
+    for raw_doc in unprocessed:
+        records = transform_document(raw_doc)
     
-    #return(features)
+        for record in records:
+            # Avoid duplicates: only insert if station + timestamp not already in clean collection
+            exists = clean_col.find_one({
+                "station_id": record["station_id"],
+                "timestamp": record["timestamp"]
+            })
 
-    # 2. Step: search stations for certain station (here for example: Wien/Hohe Warte)
-    # target_station = "Wien/Hohe Warte"
-    # wien_data = None
+            if not exists:
+                clean_col.insert_one(record)
+                print(f"[Saved] Station {record['station_id']} | {record['timestamp']}")
+            else:
+                print(f"[Skipped]  Station {record['station_id']} | {record['timestamp']} already exists")
 
-# def check():
-    #_
+        # Mark raw document as processed
+        raw_col.update_one(
+            {"_id": raw_doc["_id"]},
+            {"$set": {"processed": True}}
+        )
+        count += 1
 
-def create_cleaned_data(timestamps, temp, station_id, temp_unit, temp_name):
-    record = {
-        "station": station_id,
-        "timestamp": timestamps,
-        "name": temp_name,
-        "unit": temp_unit,
-        "temp": temp
-    }
-
-    return record
-
+    print("-" * 50)
 
 if __name__ == "__main__":
-    my_lookup = get_station_lookup()
-    raw_data = transform_latest_data()
-    client.close()
+    print("Transformer started. Exit with CTRL+C.\n")
+    try:
+        while True:
+            transform_unprocessed()
+            print(f"Waiting {INTERVAL} minutes... \n")
+            time.sleep(INTERVAL * 60)
+    except KeyboardInterrupt:
+        print("\nTransformer manually stopped.")
+    finally:
+        client.close()
