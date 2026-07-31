@@ -39,3 +39,7 @@ abgaben/
 notebooks/*.py
 notebooks/*.json
 notebooks/*.txt
+
+#Old unused files in src-Ordner
+src/setup_station.py
+src/view_db.py
