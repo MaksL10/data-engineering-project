@@ -26,9 +26,8 @@ raw_col = db[RAW_COLLECTION]
 clean_col = db[CLEAN_COLLECTION]
 
 def transform_document(raw_doc):
-    """Transform one raw GeoSpheredocument into flat record - one per station."""
+    """Transform one raw GeoSpheredocument into flat record - one per station per timestamp."""
     timestamps = raw_doc.get("timestamps", [])
-    timestamp = timestamps[0] if timestamps else None
 
     records = []
 
@@ -37,18 +36,20 @@ def transform_document(raw_doc):
         station_id = properties.get("station")
         parameters = properties.get("parameters", {})
 
-        # Build flat record for this station
-        record = {
-            "station_id": station_id,
-            "timestamp": timestamp
-        }
+        # one record per timestamp
+        for i, timestamp in enumerate(timestamps):
+            # Build flat record for this station and timestamp
+            record = {
+                "station_id": station_id,
+                "timestamp": timestamp
+            }
 
-        for param_key, param_value in parameters.items():
-            data = param_value.get("data", [None])
-            value = data[0] if data else None
-            record[param_key] = value
+            for param_key, param_value in parameters.items():
+                data = param_value.get("data", [None])
+                value = data[i] if i < len(data) else None
+                record[param_key] = value
 
-        records.append(record)
+            records.append(record)
 
     return records
 

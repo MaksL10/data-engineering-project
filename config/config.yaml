@@ -44,3 +44,15 @@ quality:
   valid_flags: [1, 10, 11, 12, 20, 21, 22]
   warn_flags: [0]
   invalid_flags: []
+
+alerts:
+  temperature:
+    max: 35  #Hitzewarnung über 35°C
+    min: -10 #Kältewarnung unter -15°C
+  wind:
+    ffam_max: 60 #Sturmwarnung über 60km/h
+    ffx_max: 90  #Extremböen über 90 km/h
+  precipitation:
+    rr_max: 30   #Startkegen über 30mm/10min
+  snow:
+    sh_max: 100  #Schneehöhe über 100cm
