@@ -5,6 +5,7 @@ import yaml
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import date, timedelta, datetime
+from typing import Literal
 
 # 1. Loading env
 load_dotenv()
@@ -35,10 +36,13 @@ raw_col = db[RAW_COLLECTION]
 def get_all_data():
     try:
         dates = get_period()
-        start_point = dates[0]
-        end_point = dates[1]
+        start = dates[0]
+        end = dates[1]
 
-        api_limit_check = get_limits(start_point, end_point)
+        api_limit_check = get_limits(start, end, 
+                                     len(config["stations"]),
+                                     len(config["parameters"]),
+                                     config["api"]["interval_minutes"])
         if api_limit_check == "good":
 
             params = {
@@ -95,11 +99,8 @@ def get_period():
     dates = [start_point, end_point]
     return dates
 
-def get_limits(start, end):
+def get_limits(start, end, count_stations, count_parameters, req_interval) -> Literal["good", "bad"]:
     req_limit = 1000000
-    count_stations = len(config["stations"])
-    count_parameters = len(config["parameters"])
-    req_interval = config["api"]["interval_minutes"]
     timestamps_per_day = (24 * 60) / req_interval
     count_days = (end - start).days
     req_count = count_stations * count_parameters * count_days * timestamps_per_day
