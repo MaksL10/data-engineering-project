@@ -33,7 +33,7 @@ def transform_document(raw_doc):
 
     for feature in raw_doc.get("features", []):
         properties = feature.get("properties", {})
-        station_id = properties.get("station")
+        station_id = str(properties.get("station"))
         parameters = properties.get("parameters", {})
 
         # one record per timestamp
