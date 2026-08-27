@@ -1,7 +1,7 @@
 import time
 import os
 import yaml
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -24,6 +24,21 @@ THRESHOLDS = {
     "rr": {"max": config["alerts"]["precipitation"]["rr_max"]},
     "sh": {"max": config["alerts"]["snow"]["sh_max"]}
 }
+STATION_NAMES = {str(s["id"]): s["name"] for s in config["stations"]}
+PARAMETER_NAMES = {
+    "tl": "Lufttemperatur",
+    "ffam": "Windgeschwindigkeit",
+    "ffx": "Windböen",
+    "rr": "Niederschlag",
+    "sh": "Schneehöhe"
+}
+PARAMETER_UNITS = {
+    "tl": "°C",
+    "ffam": "km/h",
+    "ffx": "km/h",
+    "rr": "mm",
+    "sh": "cm"
+}
 
 # 2. Establish connection to Mongo DB
 client = MongoClient(MONGO_URI)
@@ -45,18 +60,79 @@ def check_alerts():
         for parameter, limits in THRESHOLDS.items():
             value = latest.get(parameter)
 
-            is_alert = False
-
             if value is None:
                 continue
 
-            elif value > limits["max"]:
-                is_alert = True
+            is_alert = is_threshold_exceeded(value, limits)
 
-            if is_alert is True:
-                send_alarm(parameter, limits["max"], value)
-    
+            active_alert = alert_col.find_one({
+                "station_id": station_id,
+                "parameter": parameter,
+                "active": True
+            })
+
+            if is_alert and active_alert:
+                continue
+
+            elif is_alert and not active_alert:
+                send_alarm(station_id, parameter, value, limits)
+
+            elif not is_alert and active_alert:
+                send_resolved(station_id, parameter, active_alert)
+
+            # return is_alert, value, station_id
+
+def is_threshold_exceeded(value, limits) -> bool:
+    """Checks if the value is over or under max/min alert limit"""
+    if value > limits.get("max", float("inf")):
+        return True 
+    if value < limits.get("min", float("-inf")):
+        return True
+    return False
+
+def send_alarm(station, parameter, value, limit):
+    max = limit.get("max", float("inf"))
+    min = limit.get("min", float("-inf"))
+    limit_type = "max" if value > max else "min"
+
+    station_name = STATION_NAMES.get(station, station)
+    param_name = PARAMETER_NAMES.get(parameter, parameter)
+    unit = PARAMETER_UNITS.get(parameter, "")
+
+    alert_col.insert_one({
+                "station_id": station,
+                "parameter": parameter,
+                "value": value,
+                "limit_type": limit_type,
+                "active": True,
+                "timestamp": datetime.now(timezone.utc)
+            })
+
+    if value > max:
+        
+        print(f'[WARNUNG]: {station_name}. {param_name} beträgt {value}{unit} '
+              f'(Grenzwert: {max}{unit})')
+
+    else:
+        print(f'[WARNUNG]: {station_name}. {param_name} beträgt {value}{unit} '
+                      f'(Grenzwert: {min}{unit})')
+
+def send_resolved(station, parameter, active_alert):
+    station_name = STATION_NAMES.get(station, station)
+    param_name = PARAMETER_NAMES.get(parameter, parameter)
+
+    alert_col.update_one(
+        {"_id": active_alert["_id"]},
+        {"$set": {
+            "active": False,
+            "resolved_at": datetime.now(timezone.utc)
+        }}
+    )
+
+    print(f'[ENTWEARNUNG]: {station_name}: {param_name} wieder im Normalbereich')
+        
 
 if __name__ == "__main__":
     check_alerts()
+    # print(response)
     client.close
