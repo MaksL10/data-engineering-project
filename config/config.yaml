@@ -48,7 +48,7 @@ quality:
 alerts:
   temperature:
     max: 35  #Hitzewarnung über 35°C
-    min: -10 #Kältewarnung unter -15°C
+    min: -15 #Kältewarnung unter -15°C
   wind:
     ffam_max: 60 #Sturmwarnung über 60km/h
     ffx_max: 90  #Extremböen über 90 km/h
