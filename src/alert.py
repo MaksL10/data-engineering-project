@@ -133,6 +133,12 @@ def send_resolved(station, parameter, active_alert):
         
 
 if __name__ == "__main__":
-    check_alerts()
-    # print(response)
-    client.close
+    print(f'Allert system started. Exit with CTRL+C\n')
+    try:
+        while True:
+            check_alerts()
+            time.sleep(INTERVAL * 60)
+    except KeyboardInterrupt:
+        print(f'\nAlert system stopped')
+    finally:
+        client.close()
