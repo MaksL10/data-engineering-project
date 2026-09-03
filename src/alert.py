@@ -16,6 +16,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = os.getenv("MONGO_DB", "city_database")
 CLEAN_COLLECTION = os.getenv("MONGO_COLLECTION_PROCESSED", "weather_processed")
 ALERT_COLLECTION = os.getenv("MONGO_COLLECTION_ALERT", "alert_collection")
+HEALTH_COLLECTION = os.getenv("MONGO_COLLECTION_HEALTH", "system_health")
 THRESHOLDS = {
     "tl": {"max": config["alerts"]["temperature"]["max"],
            "min": config["alerts"]["temperature"]["min"]},
@@ -45,6 +46,7 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 clean_col = db[CLEAN_COLLECTION]
 alert_col = db[ALERT_COLLECTION]
+health_col = db[HEALTH_COLLECTION]
 
 def check_alerts():
     for station in config["stations"]:
@@ -80,7 +82,7 @@ def check_alerts():
             elif not is_alert and active_alert:
                 send_resolved(station_id, parameter, active_alert)
 
-            # return is_alert, value, station_id
+            write_heartbeat("alert")
 
 def is_threshold_exceeded(value, limits) -> bool:
     """Checks if the value is over or under max/min alert limit"""
@@ -130,6 +132,16 @@ def send_resolved(station, parameter, active_alert):
     )
 
     print(f'[ENTWEARNUNG]: {station_name}: {param_name} wieder im Normalbereich')
+
+def write_heartbeat(component: str):
+    health_col.update_one(
+        {"component": component},
+        {"$set": {
+            "status": "ok",
+            "last_seen": datetime.now(timezone.utc)
+        }},
+        upsert = True
+    )
         
 
 if __name__ == "__main__":

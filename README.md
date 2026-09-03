@@ -3,26 +3,17 @@
 A real-time data engineering pipeline that collects, processes, and monitors weather data from 5 meteorological stations in Carinthia (Kärnten), Austria, using the GeoSphere Austria API.
 
 ## Architecture
-GeoSphere Austria API
-        │
-        ▼
-   producer.py  ──────►  Apache Kafka  ──────►  consumer.py
-                                                      │
-                                                      ▼
-                                             MongoDB (weather_data)
-                                                      │
-                                                      ▼
-                                             transformer.py
-                                                      │
-                                                      ▼
-                                        MongoDB (weather_processed)
-                                                      │
-                                          ┌───────────┘
-                                          ▼
-                                      alert.py
-                                 (threshold monitoring)
-
-   backfill.py  ──────────────────────────────────────►  MongoDB (weather_data)
+``````mermaid
+graph LR
+    A[GeoSphere Austria API] --> B[producer.py]
+    B --> C[Apache Kafka]
+    C --> D[consumer.py]
+    D --> E[(MongoDB raw)]
+    E --> F[transformer.py]
+    F --> G[(MongoDB processed)]
+    G --> H[alert.py]
+    I[backfill.py] --> E
+```
 
 ## Monitored Stations
 
@@ -145,6 +136,9 @@ Weather data is provided by GeoSphere Austria via the [GeoSphere Austria Data Hu
 Endpoint: klima-v2-10min (10-minute historical climate data)
 API limit: 1,000,000 values per request
 Rate limit: 5 requests/second, 240 requests/hour
+
+## Known Improvements
+- Centralize MongoDB connections in `db_connections.py`
 
 ## Academic Context
 This project was developed as part of the Project: Data Engineering module at [IU International University of Applied Sciences](https://www.iu.de/).

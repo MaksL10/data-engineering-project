@@ -2,6 +2,7 @@ import os
 import yaml
 import time
 from pymongo import MongoClient
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # 1. Load enviroment variables & config
@@ -16,6 +17,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = os.getenv("MONGO_DB", "city_database")
 RAW_COLLECTION = os.getenv("MONGO_COLLECTION_RAW", "weather_data")
 CLEAN_COLLECTION = os.getenv("MONGO_COLLECTION_PROCESSED", "weather_processed")
+HEALTH_COLLECTION = os.getenv("MONGO_COLLECTION_HEALTH", "system_health")
 VALID_FLAGS = config["quality"]["valid_flags"]
 INTERVAL = config["api"]["interval_minutes"]
 
@@ -24,6 +26,7 @@ client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 raw_col = db[RAW_COLLECTION]
 clean_col = db[CLEAN_COLLECTION]
+health_col = db[HEALTH_COLLECTION]
 
 def transform_document(raw_doc):
     """Transform one raw GeoSpheredocument into flat record - one per station per timestamp."""
@@ -73,6 +76,7 @@ def transform_unprocessed():
             if not exists:
                 clean_col.insert_one(record)
                 print(f"[Saved] Station {record['station_id']} | {record['timestamp']}")
+                write_heartbeat("transformer")
             else:
                 print(f"[Skipped]  Station {record['station_id']} | {record['timestamp']} already exists")
 
@@ -84,6 +88,16 @@ def transform_unprocessed():
         count += 1
 
     print("-" * 50)
+
+def write_heartbeat(component: str):
+    health_col.update_one(
+        {"component": component},
+        {"$set": {
+            "status": "ok",
+            "last_seen": datetime.now(timezone.utc)
+        }},
+        upsert = True
+    )
 
 if __name__ == "__main__":
     print("Transformer started. Exit with CTRL+C.\n")

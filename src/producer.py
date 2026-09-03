@@ -6,12 +6,16 @@ import yaml
 from kafka import KafkaProducer
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 
 # 1. Kafka-Konfigurations
 load_dotenv()
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
+MONGO_URI = os.getenv("MONGO_DB", "mongodb://localhost:27017/")
+DB_NAME = os.getenv("MONGO_DB", "city_database")
 TOPIC_NAME = os.getenv("KAFKA_TOPIC", "geosphere-weather")
+HEALTH_COLLECTION = os.getenv("MONGO_COLLECTION_HEALTH", "system_health")
 
 # 2. Load config.yaml
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +39,11 @@ producer = KafkaProducer(
     bootstrap_servers=[KAFKA_BROKER],
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
+
+# Install connection to SYSTEM_HEALTH
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client(DB_NAME)
+health_col = db[HEALTH_COLLECTION]
 
 def fetch_and_send_weather():
     try:
@@ -60,11 +69,23 @@ def fetch_and_send_weather():
             producer.send(TOPIC_NAME, value=weather_data)
             producer.flush() # securing message has been sent immidiately
             print(f"[{time.strftime('%H:%M:%S')}] Data successfully sent to Topic {TOPIC_NAME}!")
+            write_heartbeat("producer")
         else:
             print(f"Error during API retrieval: Status Code: {response.status_code}")
 
     except Exception as e:
         print(f"An error has occurred: {e}")
+
+def write_heartbeat(component: str):
+    health_col.update_one(
+        {"component": component},
+        {"$set": {
+            "status": "ok",
+            "last_seen": datetime.now(timezone.utc)
+        }},
+        upsert = True
+    )
+
 
 if __name__ == "__main__":
     print("Python Geosphere Producer has started. Exit with CTRL+C.")
