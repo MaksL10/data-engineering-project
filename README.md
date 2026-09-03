@@ -3,7 +3,7 @@
 A real-time data engineering pipeline that collects, processes, and monitors weather data from 5 meteorological stations in Carinthia (Kärnten), Austria, using the GeoSphere Austria API.
 
 ## Architecture
-``````mermaid
+```mermaid
 graph LR
     A[GeoSphere Austria API] --> B[producer.py]
     B --> C[Apache Kafka]
